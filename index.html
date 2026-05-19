@@ -1,25 +1,23 @@
 <!DOCTYPE html>
-<html lang="cs">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="TickTick Clone pro KAJ předmět. To-Do list, Pomodoro, Habits a mnohem více." />
-  <title>TickTick Clone | KAJ</title>
-  
-  <!-- Main CSS and JS -->
+  <meta name="description" content="TodoZen - A premium multi-dimensional To-Do, Pomodoro, and Habits application." />
+  <title>TodoZen | KAJ Semestral Work</title>
 </head>
 <body class="light-mode">
   
-  <!-- Zde bude dynamicky vložena Webová komponenta pro detail úlohy -->
+  <!-- Web Component for task detail placeholder -->
   <task-modal id="task-detail-modal" aria-hidden="true"></task-modal>
 
-  <!-- Hlavní layout -->
+  <!-- Main Layout -->
   <div class="app-container">
     
-    <!-- Sémantika: nav pro boční menu -->
-    <nav class="sidebar" aria-label="Hlavní navigace">
+    <!-- Sidebar -->
+    <nav class="sidebar" aria-label="Main Navigation">
       <div class="sidebar-header">
-        <h1>TickTick</h1>
+        <h1>TodoZen</h1>
       </div>
       <ul class="sidebar-menu" id="main-nav">
         <li><a href="/" data-route="/">Inbox</a></li>
@@ -27,16 +25,16 @@
         <li><a href="/habits" data-route="/habits">Habits</a></li>
       </ul>
       <div class="sidebar-footer">
-        <button id="theme-toggle">Přepnout téma</button>
+        <button id="theme-toggle">Toggle Theme</button>
       </div>
     </nav>
 
-    <!-- Sémantika: main pro hlavní obsah (zde se bude přepisovat router) -->
+    <!-- Main Content Area -->
     <main class="main-content" id="router-view">
-      <!-- Místo pro dynamický obsah (List/Matrix/Habits) -->
+      <!-- Dynamic views render here -->
     </main>
 
-    <!-- Sémantika: aside pro doplňkový obsah (např. Pomodoro widget) -->
+    <!-- Right Widget Panel -->
     <aside class="right-panel">
       <!-- Pomodoro Timer Area -->
       <section class="pomodoro-widget">
@@ -49,7 +47,7 @@
           <button id="pomodoro-start">Start</button>
           <button id="pomodoro-pause">Pause</button>
         </div>
-        <!-- Média API: audio prvek -->
+        <!-- Media API: audio element -->
         <audio id="pomodoro-audio" src="" preload="auto"></audio>
       </section>
     </aside>

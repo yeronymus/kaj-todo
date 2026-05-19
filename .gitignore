@@ -33,7 +33,7 @@ out/
 *.sw?
 .DS_Store
 
-# Secrets
+# Secrets and AI/Local context
 .env
 .env.local
 .env.development.local
@@ -43,3 +43,5 @@ out/
 id_rsa
 secrets.json
 .pypirc
+AGENTS.md
+PROJECT_REQUIREMENTS.md

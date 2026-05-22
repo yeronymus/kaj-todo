@@ -1,65 +1,54 @@
 // src/main.js
 import './style.scss';
+import AppController from './controllers/AppController.js';
 
-// Základní event naslouchající dokončení načtení DOM
+// Wait for DOM layout to load fully
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('TickTick Clone nastartován');
+    console.log('TodoZen Premium Suite Initializing...');
 
-    // Inicializace jednoduchého přepínání Dark/Light mode (localStorage)
-    const initTheme = () => {
+    // 1. Initialize Theme Engine (Light / Dark Modes)
+    const initThemeEngine = () => {
         const themeBtn = document.getElementById('theme-toggle');
-        const currentTheme = localStorage.getItem('theme') || 'light';
+        const savedTheme = localStorage.getItem('todozen_theme') || 'light';
         
-        if(currentTheme === 'dark') {
+        // Initial setup
+        if (savedTheme === 'dark') {
             document.body.classList.replace('light-mode', 'dark-mode');
+        } else {
+            document.body.classList.replace('dark-mode', 'light-mode');
         }
 
         themeBtn.addEventListener('click', () => {
             if (document.body.classList.contains('light-mode')) {
                 document.body.classList.replace('light-mode', 'dark-mode');
-                localStorage.setItem('theme', 'dark');
+                localStorage.setItem('todozen_theme', 'dark');
             } else {
                 document.body.classList.replace('dark-mode', 'light-mode');
-                localStorage.setItem('theme', 'light');
+                localStorage.setItem('todozen_theme', 'light');
             }
         });
     };
 
-    // Inicializace jednoduchého klienta routeru (History API)
-    const initRouter = () => {
-        const navLinks = document.querySelectorAll('#main-nav a');
-        const routerView = document.getElementById('router-view');
-
-        const renderRoute = (path) => {
-            // Zde později budeme propojovat View Controller
-            routerView.innerHTML = `<h2>${path === '/' ? 'Inbox' : path.substring(1)}</h2><p>Zde bude obsah dané sekce...</p>`;
-        };
-
-        // Zachycení kliknutí na odkazy
-        navLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const path = e.target.getAttribute('data-route');
-                
-                // History API: pushState
-                window.history.pushState({ path }, "", path);
-                renderRoute(path);
+    // 2. Register Service Worker for PWA compliance (Offline Capability)
+    const registerServiceWorker = () => {
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register(`${import.meta.env.BASE_URL}service-worker.js`)
+                    .then(registration => {
+                        console.log('TodoZen Service Worker registered with scope:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('TodoZen Service Worker registration failed:', error);
+                    });
             });
-        });
-
-        // Zachycení tlačítek zpět/vpřed v prohlížeči (popstate)
-        window.addEventListener('popstate', (e) => {
-            if (e.state && e.state.path) {
-                renderRoute(e.state.path);
-            } else {
-                renderRoute('/');
-            }
-        });
-
-        // Úvodní render
-        renderRoute(window.location.pathname);
+        }
     };
 
-    initTheme();
-    initRouter();
+    // Initialize systems
+    initThemeEngine();
+    registerServiceWorker();
+
+    // 3. Bootstrap MVC orchestrator
+    const app = new AppController();
+    app.start();
 });

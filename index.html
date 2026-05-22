@@ -4,56 +4,183 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="TodoZen - A premium multi-dimensional To-Do, Pomodoro, and Habits application." />
+  <meta name="theme-color" content="#6c5ce7" />
+  <link rel="manifest" href="/manifest.json" />
+  
   <title>TodoZen | KAJ Semestral Work</title>
+  
+  <!-- Preconnect and import modern Outfit font from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 </head>
 <body class="light-mode">
   
-  <!-- Web Component for task detail placeholder -->
-  <task-modal id="task-detail-modal" aria-hidden="true"></task-modal>
+  <!-- Toast Notification for Offline / Online states -->
+  <div id="connection-toast" class="toast-notification" role="alert" aria-live="polite">
+    <span class="toast-icon"></span>
+    <span class="toast-text">Connecting...</span>
+  </div>
 
-  <!-- Main Layout -->
+  <!-- Main Grid Layout -->
   <div class="app-container">
     
-    <!-- Sidebar -->
-    <nav class="sidebar" aria-label="Main Navigation">
-      <div class="sidebar-header">
-        <h1>TodoZen</h1>
+    <!-- 1. Leftmost Mini Icon Sidebar -->
+    <aside class="mini-sidebar" aria-label="Icon Navigation">
+      <div class="user-profile">
+        <div class="avatar-wrapper">
+          <svg viewBox="0 0 24 24" class="avatar-icon">
+            <circle cx="12" cy="8" r="4"></circle>
+            <path d="M5 20c0-3 3-5 7-5s7 2 7 5"></path>
+          </svg>
+          <span class="status-dot"></span>
+        </div>
       </div>
-      <ul class="sidebar-menu" id="main-nav">
-        <li><a href="/" data-route="/">Inbox</a></li>
-        <li><a href="/matrix" data-route="/matrix">Matrix</a></li>
-        <li><a href="/habits" data-route="/habits">Habits</a></li>
+      <ul class="mini-nav-menu" id="mini-nav">
+        <li>
+          <a href="/" class="active" data-route="/" title="Tasks">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 11 12 14 22 4"></polyline>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+            </svg>
+          </a>
+        </li>
+        <li>
+          <a href="/focus" data-route="/focus" title="Focus Timer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </a>
+        </li>
+        <li>
+          <a href="/matrix" data-route="/matrix" title="Eisenhower Matrix">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+          </a>
+        </li>
+        <li>
+          <a href="/habits" data-route="/habits" title="Habit Tracker">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+            </svg>
+          </a>
+        </li>
       </ul>
+      <div class="mini-sidebar-footer">
+        <button id="theme-toggle" aria-label="Toggle Theme" title="Toggle Theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+        </button>
+        <div class="footer-icons">
+          <svg viewBox="0 0 24 24" class="sync-icon" title="Data Synced Offline" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          <svg viewBox="0 0 24 24" class="bell-icon" title="Notifications" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 2. Middle Navigation Sidebar -->
+    <nav class="sidebar" aria-label="Main Navigation">
+      <!-- Smart Lists Section -->
+      <div class="sidebar-section">
+        <ul class="sidebar-menu" id="smart-nav">
+          <li>
+            <a href="#" data-list-id="today">
+              <span class="list-icon">📅</span> Today
+            </a>
+          </li>
+          <li>
+            <a href="#" data-list-id="next-7-days">
+              <span class="list-icon">🗓️</span> Next 7 Days
+            </a>
+          </li>
+          <li>
+            <a href="#" class="active" data-list-id="inbox">
+              <span class="list-icon">📥</span> Inbox
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Custom Lists Section -->
+      <div class="sidebar-section">
+        <div class="section-header">
+          <span class="section-title">Lists</span>
+          <button id="add-list-btn" title="Create New List" aria-label="Add List">+</button>
+        </div>
+        
+        <!-- Dynamic list creator overlay/input form -->
+        <form id="create-list-form" class="create-list-form hidden">
+          <input type="text" id="new-list-name" placeholder="List name..." required autocomplete="off" />
+          <button type="submit">OK</button>
+        </form>
+
+        <ul class="sidebar-menu custom-lists-menu" id="custom-lists-container">
+          <!-- Rendered dynamically by AppController -->
+        </ul>
+      </div>
+
+      <!-- Collapsible Tags Section -->
+      <div class="sidebar-section collapsible">
+        <div class="section-header">
+          <span class="section-title">Tags</span>
+        </div>
+      </div>
+
+      <!-- Collapsible Filters Section -->
+      <div class="sidebar-section collapsible">
+        <div class="section-header">
+          <span class="section-title">Filters</span>
+        </div>
+      </div>
+
+      <!-- Utilities Section at bottom -->
       <div class="sidebar-footer">
-        <button id="theme-toggle">Toggle Theme</button>
+        <ul class="sidebar-menu footer-menu">
+          <li>
+            <a href="#" data-list-id="completed">
+              <span class="list-icon">☑️</span> Completed
+            </a>
+          </li>
+          <li>
+            <a href="#" data-list-id="trash">
+              <span class="list-icon">🗑️</span> Trash
+            </a>
+          </li>
+        </ul>
       </div>
     </nav>
 
-    <!-- Main Content Area -->
+    <!-- 3. Central Dynamic Workspace (Router View) -->
     <main class="main-content" id="router-view">
-      <!-- Dynamic views render here -->
+      <!-- Injected by Controller/Views based on the active URL route -->
     </main>
 
-    <!-- Right Widget Panel -->
-    <aside class="right-panel">
-      <!-- Pomodoro Timer Area -->
-      <section class="pomodoro-widget">
-        <h2>Pomodoro</h2>
-        <div class="timer-container">
-          <canvas id="pomodoro-canvas" width="200" height="200"></canvas>
-          <div class="timer-text" id="pomodoro-time">25:00</div>
-        </div>
-        <div class="timer-controls">
-          <button id="pomodoro-start">Start</button>
-          <button id="pomodoro-pause">Pause</button>
-        </div>
-        <!-- Media API: audio element -->
-        <audio id="pomodoro-audio" src="" preload="auto"></audio>
-      </section>
-    </aside>
+    <!-- Custom Web Component for creating & editing tasks (mounts inline as drawer) -->
+    <task-modal id="task-detail-modal" aria-hidden="true"></task-modal>
 
   </div>
 
+  <!-- Entry JavaScript Module -->
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

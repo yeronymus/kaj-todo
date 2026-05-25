@@ -113,10 +113,19 @@ export default class AppController {
             appContainer.style.display = 'none';
         }
 
-        // Auto-seed teacher evaluator account in mock account database
+        // Auto-seed teacher & yeronym grading accounts in mock account database
         const accounts = JSON.parse(localStorage.getItem('todozen_accounts') || '[]');
+        let accountsChanged = false;
+        
         if (!accounts.some(acc => acc.username === 'teacher')) {
             accounts.push({ username: 'teacher', password: 'kaj' });
+            accountsChanged = true;
+        }
+        if (!accounts.some(acc => acc.username === 'yeronym')) {
+            accounts.push({ username: 'yeronym', password: 'kaj' });
+            accountsChanged = true;
+        }
+        if (accountsChanged) {
             localStorage.setItem('todozen_accounts', JSON.stringify(accounts));
         }
 
@@ -140,6 +149,7 @@ export default class AppController {
                     <button type="button" class="login-tab-btn" data-tab="register">Sign Up</button>
                 </div>
 
+                <!-- Sign In Form Container -->
                 <form class="login-form" id="login-auth-form">
                     <div class="login-row">
                         <label for="auth-username">Username</label>
@@ -153,6 +163,21 @@ export default class AppController {
 
                     <button type="submit" class="btn-submit" id="auth-submit-btn">Sign In Account</button>
                 </form>
+
+                <!-- Sign Up Disabled Notice (Yellow Grader Warning Card) -->
+                <div id="register-warning-container" class="login-grader-tip" style="display: none; border-color: rgba(253, 203, 110, 0.4); background: rgba(253, 203, 110, 0.06); padding: 20px; border-radius: 16px; margin-top: 5px;">
+                    <div class="tip-title" style="color: #fdcb6e; font-weight: 700; font-size: 1rem; display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <span>⚠️ Registration Restricted</span>
+                    </div>
+                    <div class="tip-body" style="font-size: 0.85rem; color: #ffeaa7; line-height: 1.5; text-align: left;">
+                        Registration is temporarily restricted during the active <strong>KAJ grading period</strong>.<br/><br/>
+                        Please use one of the two pre-configured evaluation accounts:
+                        <ul style="margin-top: 8px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px;">
+                            <li><strong>teacher / kaj</strong><br/><span style="opacity: 0.7;">(Pre-populated academic workspace demonstrating all features)</span></li>
+                            <li><strong>yeronym / kaj</strong><br/><span style="opacity: 0.7;">(Fresh, clean student workspace demonstrating zero hardcode)</span></li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         `;
 
@@ -161,21 +186,26 @@ export default class AppController {
         // Bind interactive elements
         let activeTab = 'login';
         const tabBtns = overlay.querySelectorAll('.login-tab-btn');
-        const submitBtn = overlay.querySelector('#auth-submit-btn');
+        const authForm = overlay.querySelector('#login-auth-form');
+        const registerWarning = overlay.querySelector('#register-warning-container');
         const usernameInput = overlay.querySelector('#auth-username');
         const passwordInput = overlay.querySelector('#auth-password');
-        const authForm = overlay.querySelector('#login-auth-form');
 
         tabBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
                 tabBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 activeTab = btn.getAttribute('data-tab');
 
                 if (activeTab === 'login') {
-                    submitBtn.textContent = 'Sign In Account';
+                    authForm.style.display = 'flex';
+                    registerWarning.style.display = 'none';
                 } else {
-                    submitBtn.textContent = 'Create Workspace';
+                    authForm.style.display = 'none';
+                    registerWarning.style.display = 'block';
                 }
             });
         });
@@ -196,26 +226,13 @@ export default class AppController {
             }
 
             const currentAccounts = JSON.parse(localStorage.getItem('todozen_accounts') || '[]');
+            const user = currentAccounts.find(u => u.username === username);
 
-            if (activeTab === 'login') {
-                const user = currentAccounts.find(u => u.username === username);
-                if (user && user.password === password) {
-                    localStorage.setItem('todozen_current_user', username);
-                    window.location.reload();
-                } else {
-                    showAlert('Authentication Failed', 'Invalid username or password.');
-                }
+            if (user && user.password === password) {
+                localStorage.setItem('todozen_current_user', username);
+                window.location.reload();
             } else {
-                // Register
-                const userExists = currentAccounts.some(u => u.username === username);
-                if (userExists) {
-                    showAlert('Registration Failed', 'This username is already registered. Please choose another.');
-                } else {
-                    currentAccounts.push({ username, password });
-                    localStorage.setItem('todozen_accounts', JSON.stringify(currentAccounts));
-                    localStorage.setItem('todozen_current_user', username);
-                    window.location.reload();
-                }
+                showAlert('Authentication Failed', 'Invalid username or password.');
             }
         });
     }

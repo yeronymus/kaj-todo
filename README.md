@@ -20,6 +20,45 @@ The application enforces a strict separation of concerns:
 
 ---
 
+## 📂 Directory & File Structure
+
+The project has a modular, well-organized directory layout representing the complete MVC design system:
+
+```text
+kaj-todo/
+├── public/
+│   ├── manifest.json         # PWA app standalone metadata configuration
+│   └── service-worker.js     # Standalone PWA network caching offline strategies
+├── src/
+│   ├── controllers/
+│   │   └── AppController.js  # Main application MVC bootstrap & keyboard shortcuts coordinator
+│   ├── models/
+│   │   ├── BaseModel.js      # Scopes storage keys by username to prevent profile collisions
+│   │   ├── EventEmitter.js   # Event broker driving reactive UI bindings on database alterations
+│   │   ├── HabitModel.js     # Computes habit calendars, check-in history, and flame streaks
+│   │   ├── PomodoroModel.js  # Regulates countdown timer cycles and focus sessions state
+│   │   └── TaskModel.js      # Aggregates tags, priorities, soft-deleted tasks, and seeds
+│   ├── utils/
+│   │   └── dialogs.js        # Premium Promise-based custom glassmorphic alert/confirm overlays
+│   ├── views/
+│   │   ├── BaseView.js       # Abstract prototype parent view interface
+│   │   ├── HabitsView.js     # Habits check-in sheet including Canvas Confetti milestone bursts
+│   │   ├── InboxView.js      # Master lists visualizer supporting tags, priorities, and Trash
+│   │   ├── MatrixView.js     # Eisenhower quadrant matrix powered by drag-and-drop SortableJS
+│   │   ├── PomodoroView.js   # Focus space timer visualizer supporting custom synthetic soundscapes
+│   │   ├── SettingsModal.js  # Shadow DOM Settings Component holding themes and user sessions
+│   │   └── TaskModal.js      # 3D flippable task editor holding Geolocations, attachments, and weather
+│   ├── main.js               # Entry script bootstrap mounting the MVC orchestra
+│   ├── router.js             # History API SPA router executing pushState & popstate navigation
+│   └── style.scss            # Master SCSS stylesheet holding themes, layout grids, and animations
+├── index.html                # Entry HTML base layout grid hosting the custom web elements
+├── package.json              # Project script variables and dependencies
+├── vite.config.js            # Vite bundler configurations holding the /kaj-todo/ base prefix
+└── README.md                 # English course documentation & KAJ compliance checklists
+```
+
+---
+
 ## 🛠️ Installation & Local Development
 
 This project uses **Vite** as its modern frontend build tool.

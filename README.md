@@ -1,6 +1,6 @@
-# TodoZen — Premium Productivity Single Page Application (SPA)
+# TodoZen —  Productivity Single Page Application 
 
-TodoZen is a high-performance personal task manager, habit tracker, and Pomodoro focus environment. Built in modular **Vanilla ES6+ JavaScript** under the strict **Model-View-Controller (MVC)** design pattern, it operates fully offline as a Progressive Web Application (PWA).
+TodoZen is a high-performance personal task manager, habit tracker, and Pomodoro focus environment. Built in modular **Vanilla ES6+ JavaScript** under the strict **Model-View-Controller (MVC)** design pattern, it operates fully offline as a PWA.
 
 This project was developed as a semestral work for the **KAJ (Client Applications in JavaScript)** course at **Czech Technical University in Prague (ČVUT FEL)**.
 

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="TodoZen - A premium multi-dimensional To-Do, Pomodoro, and Habits application." />
+  <meta name="theme-color" content="#6c5ce7" />
+  <link rel="icon" type="image/png" href="https://img.icons8.com/color/48/000000/todo-list.png" />
+  <link rel="manifest" href="/kaj-todo/manifest.json" />
+  
+  <title>TodoZen | KAJ Semestral Work</title>
+  
+  <!-- Preconnect and import modern Outfit font from Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script type="module" crossorigin src="/kaj-todo/assets/index-CSQhN5KM.js"></script>
+  <link rel="stylesheet" crossorigin href="/kaj-todo/assets/index-gI7HSkwU.css">
+</head>
+<body class="light-mode">
+  
+  <!-- Canvas Confetti Overlay (Milestones dopamine animations) -->
+  <canvas id="confetti-canvas"></canvas>
+
+  <!-- Toast Notification for Offline / Online states -->
+  <div id="connection-toast" class="toast-notification" role="alert" aria-live="polite">
+    <span class="toast-icon"></span>
+    <span class="toast-text">Connecting...</span>
+  </div>
+
+  <!-- Custom Web Component for user Settings & Configurations -->
+  <settings-modal id="settings-modal" aria-hidden="true"></settings-modal>
+
+  <!-- Custom Web Component for creating & editing tasks -->
+  <task-modal id="task-detail-modal" aria-hidden="true"></task-modal>
+
+  <!-- Main Grid Layout -->
+  <div class="app-container" style="display: none;">
+    
+    <!-- 1. Leftmost Mini Icon Sidebar (TickTick style) -->
+    <aside class="mini-sidebar" aria-label="Icon Navigation">
+      <div class="user-profile" id="sidebar-profile-btn" title="Open Settings Profile">
+        <div class="avatar-wrapper" id="sidebar-avatar-wrapper">
+          <svg viewBox="0 0 24 24" class="avatar-icon" id="sidebar-avatar-fallback">
+            <circle cx="12" cy="8" r="4"></circle>
+            <path d="M5 20c0-3 3-5 7-5s7 2 7 5"></path>
+          </svg>
+          <!-- Premium Gold Crown Badge -->
+          <svg viewBox="0 0 24 24" class="gold-crown-icon" id="sidebar-premium-badge" style="display: none;">
+            <path d="M12 2l3 6 7 .9-5 4.8 1.2 6.9-6.2-3.3-6.2 3.3 1.2-6.9-5-4.8 7-.9z"></path>
+          </svg>
+          <span class="status-dot"></span>
+        </div>
+      </div>
+      
+      <ul class="mini-nav-menu" id="mini-nav">
+        <li>
+          <a href="/" class="active" data-route="/" title="Tasks (Hotkey: I)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 11 12 14 22 4"></polyline>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+            </svg>
+          </a>
+        </li>
+        <li>
+          <a href="/focus" data-route="/focus" title="Focus Timer (Hotkey: F)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </a>
+        </li>
+        <li>
+          <a href="/matrix" data-route="/matrix" title="Eisenhower Matrix (Hotkey: M)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+          </a>
+        </li>
+        <li>
+          <a href="/habits" data-route="/habits" title="Habit Tracker (Hotkey: H)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+            </svg>
+          </a>
+        </li>
+      </ul>
+      
+      <div class="mini-sidebar-footer">
+        <div class="footer-icons">
+          <!-- 1. Sync button (Syncs offline data, spins on click) -->
+          <svg viewBox="0 0 24 24" class="sync-icon" id="sidebar-sync-btn" title="Sync Offline Data" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          
+          <!-- 2. Notifications bell -->
+          <svg viewBox="0 0 24 24" class="bell-icon" id="sidebar-bell-btn" title="Recent Notifications" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+
+          <!-- 3. Settings Gear button -->
+          <svg viewBox="0 0 24 24" class="settings-cog-icon" id="sidebar-settings-btn" title="Open Settings Menu (Hotkey: S)" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 2. Middle Sidebar Navigation -->
+    <nav class="sidebar" aria-label="Main Navigation">
+      <!-- Smart Lists Section -->
+      <div class="sidebar-section">
+        <ul class="sidebar-menu" id="smart-nav">
+          <li>
+            <a href="#" data-list-id="today">
+              <span class="list-icon">📅</span> Today
+              <span class="smart-count" id="count-today">0</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" data-list-id="next-7-days">
+              <span class="list-icon">🗓️</span> Next 7 Days
+              <span class="smart-count" id="count-next-7-days">0</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="active" data-list-id="inbox">
+              <span class="list-icon">📥</span> Inbox
+              <span class="smart-count" id="count-inbox">0</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Custom Lists Section -->
+      <div class="sidebar-section">
+        <div class="section-header">
+          <span class="section-title">Lists</span>
+          <button id="add-list-btn" title="Create New List" aria-label="Add List">+</button>
+        </div>
+        
+        <!-- Dynamic list creator overlay/input form -->
+        <form id="create-list-form" class="create-list-form hidden">
+          <input type="text" id="new-list-name" placeholder="List name..." required autocomplete="off" />
+          <button type="submit">OK</button>
+        </form>
+
+        <ul class="sidebar-menu custom-lists-menu" id="custom-lists-container">
+          <!-- Rendered dynamically by AppController -->
+        </ul>
+      </div>
+
+      <!-- Collapsible Tags Section -->
+      <div class="sidebar-section">
+        <div class="section-header">
+          <span class="section-title">Tags</span>
+        </div>
+        <ul class="sidebar-menu tags-menu" id="tags-container">
+          <!-- Rendered dynamically by AppController -->
+        </ul>
+      </div>
+
+      <!-- Collapsible Filters Section -->
+      <div class="sidebar-section">
+        <div class="section-header">
+          <span class="section-title">Filters</span>
+        </div>
+        <ul class="sidebar-menu filters-menu" id="filters-container">
+          <!-- Rendered dynamically by AppController -->
+        </ul>
+      </div>
+
+      <!-- Utilities Section at bottom -->
+      <div class="sidebar-footer">
+        <ul class="sidebar-menu footer-menu">
+          <li>
+            <a href="#" data-list-id="completed">
+              <span class="list-icon">☑️</span> Completed
+            </a>
+          </li>
+          <li>
+            <a href="#" data-list-id="trash">
+              <span class="list-icon">🗑️</span> Trash
+            </a>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <!-- 3. Central Dynamic Workspace (Router View) -->
+    <main class="main-content" id="router-view">
+      <!-- Injected by Controller/Views based on the active URL route -->
+    </main>
+
+  </div>
+
+  <!-- Entry JavaScript Module -->
+</body>
+</html>

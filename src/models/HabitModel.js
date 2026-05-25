@@ -8,6 +8,62 @@ export default class HabitModel extends BaseModel {
     constructor() {
         super('todozen_habits');
         this.habits = this.load([]);
+
+        // Seed initial habits ONLY if this is the 'teacher' account and has no habits!
+        const currentUser = localStorage.getItem('todozen_current_user');
+        if (this.habits.length === 0 && currentUser === 'teacher') {
+            this._seedInitialHabits();
+        }
+    }
+
+    /**
+     * Seed initial habits with custom streaks and check-ins to demonstrate chart/streaks work.
+     * @private
+     */
+    _seedInitialHabits() {
+        const getLocalDateString = (d) => {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        };
+
+        const todayStr = getLocalDateString(new Date());
+        
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = getLocalDateString(yesterday);
+        
+        const dayBefore = new Date();
+        dayBefore.setDate(dayBefore.getDate() - 2);
+        const dayBeforeStr = getLocalDateString(dayBefore);
+
+        const initial = [
+            {
+                id: 'habit-seed-1',
+                name: 'Drink 2L Water daily',
+                historyDates: [dayBeforeStr, yesterdayStr, todayStr],
+                streak: 3,
+                createdAt: new Date().toISOString()
+            },
+            {
+                id: 'habit-seed-2',
+                name: 'Read 15 pages of a book',
+                historyDates: [dayBeforeStr, yesterdayStr],
+                streak: 2,
+                createdAt: new Date().toISOString()
+            },
+            {
+                id: 'habit-seed-3',
+                name: 'Perform 20 pushups daily',
+                historyDates: [dayBeforeStr],
+                streak: 0,
+                createdAt: new Date().toISOString()
+            }
+        ];
+        
+        this.habits = initial;
+        this.save(this.habits);
     }
 
     /**

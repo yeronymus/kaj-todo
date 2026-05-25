@@ -1,6 +1,7 @@
 // src/views/MatrixView.js
 import BaseView from './BaseView.js';
 import Sortable from 'sortablejs';
+import { showConfirm } from '../utils/dialogs.js';
 
 /**
  * MatrixView manages the 4-quadrant Eisenhower Matrix Kanban layout and integrates SortableJS.
@@ -175,10 +176,12 @@ export default class MatrixView extends BaseView {
                 const delBtn = target.closest('.delete-card-btn');
                 if (delBtn) {
                     e.stopPropagation();
-                    if (confirm('Delete this task?')) {
-                        const id = delBtn.getAttribute('data-id');
-                        this.taskModel.deleteTask(id);
-                    }
+                    const id = delBtn.getAttribute('data-id');
+                    showConfirm('Delete Task', 'Are you sure you want to delete this task?').then((confirmed) => {
+                        if (confirmed) {
+                            this.taskModel.deleteTask(id);
+                        }
+                    });
                     return;
                 }
 

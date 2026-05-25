@@ -2,15 +2,18 @@
 
 /**
  * SPA client-side router driven by the History API.
+ * Configured with a static base path matching Vite's and GitHub Pages' /kaj-todo/ base URL.
  */
 export default class Router {
     constructor() {
         this.routes = {};
         this.currentPath = null;
+        this.basePath = '/kaj-todo'; // Configured base prefix matching vite.config.js
         
         // Listen to standard popstate back/forward browser events
-        window.addEventListener('popstate', (event) => {
-            const path = event.state && event.state.path ? event.state.path : '/';
+        window.addEventListener('popstate', () => {
+            // Re-resolve route based on the current window pathname
+            const path = this._normalizePath(window.location.pathname);
             this._handleRoute(path, false);
         });
     }
@@ -40,8 +43,6 @@ export default class Router {
 
         // Resolve current initial path
         const currentPath = window.location.pathname;
-        
-        // Support deploying to github pages under a subpath (e.g. /kaj-todo/)
         const normalizedPath = this._normalizePath(currentPath);
         this._handleRoute(normalizedPath, true);
     }
@@ -64,11 +65,8 @@ export default class Router {
         this.currentPath = path;
 
         if (pushToHistory) {
-            // Respect browser base path configurations if we are in github pages subfolder
-            const isGitHubPages = window.location.hostname.includes('github.io');
-            const basePath = isGitHubPages ? window.location.pathname.split('/').slice(0, -1).join('/') : '';
-            const finalPath = basePath ? `${basePath}${path}` : path;
-            
+            // Always prepend the base path configuration
+            const finalPath = this.basePath + (path === '/' ? '/' : path);
             window.history.pushState({ path }, "", finalPath);
         }
 
@@ -78,19 +76,21 @@ export default class Router {
     }
 
     /**
-     * Strip base URL subfolders (like GitHub Pages repo names) to match path keys like '/'
+     * Strip the configured base path from the URL pathname to retrieve matching route keys.
      * @private
      */
     _normalizePath(fullPath) {
-        const isGitHubPages = window.location.hostname.includes('github.io');
-        if (!isGitHubPages) return fullPath;
-
-        // Extracts trailing paths if running under a subdirectory
-        const segments = fullPath.split('/');
-        // Assuming the repository name is the second segment: /kaj-todo/matrix -> /matrix
-        if (segments.length > 2 && segments[1] === 'kaj-todo') {
-            return '/' + segments.slice(2).join('/');
+        // Strip trailing slash if present
+        let cleanPath = fullPath;
+        if (cleanPath.endsWith('/') && cleanPath.length > 1) {
+            cleanPath = cleanPath.slice(0, -1);
         }
-        return fullPath;
+
+        if (cleanPath.startsWith(this.basePath)) {
+            const subPath = cleanPath.substring(this.basePath.length);
+            return subPath === '' ? '/' : subPath;
+        }
+
+        return cleanPath || '/';
     }
 }

@@ -1,8 +1,9 @@
 // src/views/InboxView.js
 import BaseView from './BaseView.js';
+import { showConfirm } from '../utils/dialogs.js';
 
 /**
- * InboxView manages standard list-based task operations, custom lists, filters, and binds modal triggers.
+ * InboxView manages standard list-based task operations, custom lists, soft-deleted Trash, Tags, Filters, and binds modal triggers.
  */
 export default class InboxView extends BaseView {
     /**
@@ -78,8 +79,19 @@ export default class InboxView extends BaseView {
             listName = 'Completed';
             listIcon = '☑️';
         } else if (this.listId === 'trash') {
-            listName = 'Trash';
+            listName = 'Trash Bin';
             listIcon = '🗑️';
+        } else if (this.listId.startsWith('tag-')) {
+            const tagName = this.listId.substring(4);
+            listName = `Tag: #${tagName}`;
+            listIcon = '🏷️';
+        } else if (this.listId.startsWith('filter-')) {
+            const filterId = this.listId.substring(7);
+            listIcon = '⚡️';
+            if (filterId === 'priority-high') listName = 'High Priority Tasks';
+            else if (filterId === 'has-date') listName = 'Tasks with Due Date';
+            else if (filterId === 'has-location') listName = 'Tasks with Location';
+            else if (filterId === 'has-image') listName = 'Tasks with Images';
         } else {
             const customList = this.taskModel.getAllLists().find(l => l.id === this.listId);
             if (customList) {
@@ -88,14 +100,17 @@ export default class InboxView extends BaseView {
             }
         }
 
-        // 1. Filter tasks based on selected category list ID
+        // --- 1. FILTER TASKS BASED ON SELECTED CATEGORY LIST ID ---
         let filteredTasks = tasks;
         const todayStr = new Date().toLocaleDateString('sv'); // YYYY-MM-DD local format
         
-        if (this.listId === 'completed') {
-            filteredTasks = tasks.filter(t => t.completed);
+        // Always filter out soft-deleted tasks UNLESS browsing the Trash Bin!
+        if (this.listId === 'trash') {
+            filteredTasks = tasks.filter(t => t.deleted);
+        } else if (this.listId === 'completed') {
+            filteredTasks = tasks.filter(t => !t.deleted && t.completed);
         } else if (this.listId === 'today') {
-            filteredTasks = tasks.filter(t => !t.completed && t.dueDate === todayStr);
+            filteredTasks = tasks.filter(t => !t.deleted && !t.completed && t.dueDate === todayStr);
         } else if (this.listId === 'next-7-days') {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -104,39 +119,52 @@ export default class InboxView extends BaseView {
             nextWeek.setHours(23, 59, 59, 999);
 
             filteredTasks = tasks.filter(t => {
-                if (t.completed || !t.dueDate) return false;
+                if (t.deleted || t.completed || !t.dueDate) return false;
                 const d = new Date(t.dueDate);
                 return d >= today && d <= nextWeek;
             });
-        } else if (this.listId === 'trash') {
-            // Mock empty trash or placeholder for soft deleted
-            filteredTasks = [];
+        } else if (this.listId.startsWith('tag-')) {
+            const tagName = this.listId.substring(4);
+            filteredTasks = tasks.filter(t => !t.deleted && !t.completed && Array.isArray(t.tags) && t.tags.includes(tagName));
+        } else if (this.listId.startsWith('filter-')) {
+            const filterId = this.listId.substring(7);
+            if (filterId === 'priority-high') {
+                filteredTasks = tasks.filter(t => !t.deleted && !t.completed && t.priority === 'high');
+            } else if (filterId === 'has-date') {
+                filteredTasks = tasks.filter(t => !t.deleted && !t.completed && t.dueDate !== '');
+            } else if (filterId === 'has-location') {
+                filteredTasks = tasks.filter(t => !t.deleted && !t.completed && t.location !== null);
+            } else if (filterId === 'has-image') {
+                filteredTasks = tasks.filter(t => !t.deleted && !t.completed && t.attachments && t.attachments.length > 0);
+            }
         } else {
-            // Inbox or custom lists (show uncompleted tasks inside)
-            filteredTasks = tasks.filter(t => !t.completed && t.listId === this.listId);
+            // Standard inbox or custom lists
+            filteredTasks = tasks.filter(t => !t.deleted && !t.completed && t.listId === this.listId);
         }
 
-        // 2. Filter tasks based on Sub-Filters (All, Active, Completed) - ignore for Completed/Trash specific lists
-        if (this.listId !== 'completed' && this.listId !== 'trash') {
+        // --- 2. FILTER TASKS BASED ON SUB-FILTERS (All, Active, Completed) ---
+        // (Bypass for completed/trash/tag/filter lists to avoid blank states)
+        const isUtilityList = this.listId === 'completed' || this.listId === 'trash' || this.listId.startsWith('tag-') || this.listId.startsWith('filter-');
+        
+        if (!isUtilityList) {
             if (this.currentFilter === 'active') {
                 filteredTasks = filteredTasks.filter(t => !t.completed);
             } else if (this.currentFilter === 'completed') {
-                // For other lists, let the user check completed tasks assigned to them
-                // By default, category filter was !completed, let's match this filter request
-                filteredTasks = tasks.filter(t => t.completed && t.listId === this.listId);
+                // Show completed tasks assigned under this specific category
+                filteredTasks = tasks.filter(t => !t.deleted && t.completed && t.listId === this.listId);
             }
         }
 
         // Sort chronologically (newest first)
         filteredTasks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-        const isCompletedOrTrash = this.listId === 'completed' || this.listId === 'trash';
+        const isReadOnlyList = this.listId === 'completed' || this.listId === 'trash';
 
         const html = `
             <div class="inbox-container">
                 <header class="inbox-header">
                     <h2><span class="header-icon">${listIcon}</span> ${listName}</h2>
-                    ${isCompletedOrTrash ? '' : `
+                    ${isUtilityList ? '' : `
                         <div class="filters">
                             <button class="${this.currentFilter === 'all' ? 'active' : ''}" data-filter="all">All</button>
                             <button class="${this.currentFilter === 'active' ? 'active' : ''}" data-filter="active">Active</button>
@@ -145,9 +173,9 @@ export default class InboxView extends BaseView {
                     `}
                 </header>
 
-                ${isCompletedOrTrash ? '' : `
+                ${isReadOnlyList ? '' : `
                     <form class="add-task-form" id="quick-add-form">
-                        <input type="text" id="quick-title" placeholder="Add a task to ${listName}... (Press Enter)" required autofocus autocomplete="off" />
+                        <input type="text" id="quick-title" placeholder="Add a task to ${listName}... (Press Enter)" required autocomplete="off" />
                         <button type="submit">Add Task</button>
                     </form>
                 `}
@@ -163,18 +191,15 @@ export default class InboxView extends BaseView {
                                     </linearGradient>
                                 </defs>
                                 <circle cx="100" cy="100" r="80" fill="url(#emptyGrad)" />
-                                <!-- Book outline -->
                                 <rect x="70" y="60" width="60" height="80" rx="8" fill="none" stroke="var(--primary-color)" stroke-width="3" />
-                                <!-- Lines in book -->
                                 <line x1="80" y1="80" x2="120" y2="80" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" />
                                 <line x1="80" y1="95" x2="110" y2="95" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" />
                                 <line x1="80" y1="110" x2="100" y2="110" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" />
-                                <!-- Floating pencil -->
                                 <path d="M140 50 L150 60 L125 85 L115 85 L115 75 Z" fill="var(--warning-color)" />
                                 <path d="M115 85 L118 78 L122 82 Z" fill="#2d3436" />
                             </svg>
                             <h3>All clear!</h3>
-                            <p>No tasks in this list. Enjoy your day!</p>
+                            <p>No tasks found in this section.</p>
                         </div>
                     ` : filteredTasks.map(task => this._generateTaskTemplate(task)).join('')}
                 </section>
@@ -187,10 +212,26 @@ export default class InboxView extends BaseView {
 
     /**
      * Template helper for individual task items.
-     * Includes SVG Star item for dynamic JS stroke adjustments.
+     * Integrates custom buttons if rendering Trash soft-deleted cards.
      * @private
      */
     _generateTaskTemplate(task) {
+        // If in Trash list, show Restore / Purge triggers instead of checkboxes
+        if (this.listId === 'trash') {
+            return `
+                <article class="task-item completed" data-id="${task.id}" style="cursor: default;">
+                    <div class="task-left">
+                        <span class="task-title" style="margin-left: 0;">${this._escapeHTML(task.title)}</span>
+                    </div>
+
+                    <div class="task-meta">
+                        <button class="btn-restore-task" data-id="${task.id}">♻️ Restore</button>
+                        <button class="btn-purge-task" data-id="${task.id}">🗑️ Purge</button>
+                    </div>
+                </article>
+            `;
+        }
+
         const isImportant = task.priority === 'high';
         
         return `
@@ -203,11 +244,11 @@ export default class InboxView extends BaseView {
                 </div>
 
                 <div class="task-meta">
+                    ${task.tags && task.tags.length > 0 ? task.tags.map(t => `<span class="task-due-badge" style="background:rgba(108,92,231,0.06); margin-right:4px;">#${t}</span>`).join('') : ''}
                     ${task.location ? '<span title="Location Tagged">📍</span>' : ''}
                     ${task.attachments && task.attachments.length > 0 ? `<span title="${task.attachments.length} Images Attached">🖼️</span>` : ''}
                     ${task.dueDate ? `<span class="task-due-badge" title="Due Date">📅 ${task.dueDate}</span>` : ''}
                     
-                    <!-- SVG Star for dynamic JS stroke editing -->
                     <button class="star-btn ${isImportant ? 'active' : ''}" data-id="${task.id}" title="Toggle High Priority">
                         <svg viewBox="0 0 24 24" id="star-svg-${task.id}">
                             <polygon points="12,2 15,9 22,9 17,14 19,21 12,17 5,21 7,14 2,9 9,9" />
@@ -221,7 +262,7 @@ export default class InboxView extends BaseView {
     }
 
     /**
-     * Binds active interactions.
+     * Binds active interactions and Vibration Haptic ticks.
      * @private
      */
     _setupListeners() {
@@ -236,11 +277,11 @@ export default class InboxView extends BaseView {
                 const title = input.value.trim();
                 
                 if (title !== '') {
-                    // Determine which list and dueDate to assign to the new task
                     let targetListId = 'inbox';
                     let dueDate = '';
 
-                    if (this.listId !== 'today' && this.listId !== 'next-7-days' && this.listId !== 'completed' && this.listId !== 'trash') {
+                    // Categorize appropriately based on view
+                    if (this.listId !== 'today' && this.listId !== 'next-7-days' && this.listId !== 'completed' && this.listId !== 'trash' && !this.listId.startsWith('tag-') && !this.listId.startsWith('filter-')) {
                         targetListId = this.listId;
                     }
                     if (this.listId === 'today') {
@@ -270,15 +311,18 @@ export default class InboxView extends BaseView {
             list.addEventListener('click', (e) => {
                 const target = e.target;
                 
-                // 1. Toggle completion checkbox
+                // 1. Toggle completion checkbox (with Vibration tick!)
                 if (target.classList.contains('task-checkbox')) {
                     e.stopPropagation();
                     const id = target.getAttribute('data-id');
                     this.taskModel.toggleTask(id);
+                    
+                    // Vibration Haptics
+                    if (navigator.vibrate) navigator.vibrate(15);
                     return;
                 }
 
-                // 2. Toggle importance star with SVG stroke animation
+                // 2. Toggle importance star with SVG stroke animation (with Vibration tick!)
                 const starBtn = target.closest('.star-btn');
                 if (starBtn) {
                     e.stopPropagation();
@@ -286,7 +330,6 @@ export default class InboxView extends BaseView {
                     const task = this.taskModel.getTaskById(id);
                     const newPriority = task.priority === 'high' ? 'medium' : 'high';
                     
-                    // Modify SVG attribute via Javascript dynamically before rendering (requirement JS SVG 2b)
                     const svg = starBtn.querySelector('svg');
                     if (newPriority === 'high') {
                         svg.setAttribute('stroke-width', '1px');
@@ -296,31 +339,62 @@ export default class InboxView extends BaseView {
                         svg.setAttribute('fill', 'none');
                     }
 
-                    // Save state
                     this.taskModel.updateTask(id, { priority: newPriority });
+                    
+                    // Vibration Haptics
+                    if (navigator.vibrate) navigator.vibrate(15);
                     return;
                 }
 
-                // 3. Delete task
+                // 3. Delete task (Soft-delete!)
                 const deleteBtn = target.closest('.delete-btn');
                 if (deleteBtn) {
                     e.stopPropagation();
-                    if (confirm('Are you sure you want to delete this task?')) {
-                        const id = deleteBtn.getAttribute('data-id');
-                        this.taskModel.deleteTask(id);
-                    }
+                    const id = deleteBtn.getAttribute('data-id');
+                    showConfirm('Move to Trash', 'Delete this task to Trash?').then((confirmed) => {
+                        if (confirmed) {
+                            this.taskModel.deleteTask(id);
+                            if (navigator.vibrate) navigator.vibrate(20);
+                        }
+                    });
                     return;
                 }
 
-                // 4. Open edit modal when clicking card body
-                const card = target.closest('.task-item');
-                if (card) {
-                    const id = card.getAttribute('data-id');
-                    const task = this.taskModel.getTaskById(id);
-                    if (task) {
-                        this.modalElement.open(task, (updatedData) => {
-                            this.taskModel.updateTask(id, updatedData);
-                        });
+                // 4. Restore soft-deleted task from Trash list
+                const restoreBtn = target.closest('.btn-restore-task');
+                if (restoreBtn) {
+                    e.stopPropagation();
+                    const id = restoreBtn.getAttribute('data-id');
+                    this.taskModel.restoreTask(id);
+                    if (navigator.vibrate) navigator.vibrate(15);
+                    return;
+                }
+
+                // 5. Permanently purge task from Trash list
+                const purgeBtn = target.closest('.btn-purge-task');
+                if (purgeBtn) {
+                    e.stopPropagation();
+                    const id = purgeBtn.getAttribute('data-id');
+                    showConfirm('Permanent Delete', 'CRITICAL: This will permanently delete this task. Proceed?').then((confirmed) => {
+                        if (confirmed) {
+                            this.taskModel.deleteTaskPermanently(id);
+                            if (navigator.vibrate) navigator.vibrate(30);
+                        }
+                    });
+                    return;
+                }
+
+                // 6. Open edit modal when clicking card body (Ignore in Trash)
+                if (this.listId !== 'trash') {
+                    const card = target.closest('.task-item');
+                    if (card) {
+                        const id = card.getAttribute('data-id');
+                        const task = this.taskModel.getTaskById(id);
+                        if (task) {
+                            this.modalElement.open(task, (updatedData) => {
+                                this.taskModel.updateTask(id, updatedData);
+                            });
+                        }
                     }
                 }
             });

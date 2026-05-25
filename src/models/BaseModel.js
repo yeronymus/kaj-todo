@@ -3,7 +3,7 @@ import EventEmitter from './EventEmitter.js';
 
 /**
  * Base Model extending EventEmitter.
- * Handles automatic serialization and persistence to LocalStorage.
+ * Handles dynamic user-scoped serialization and persistence to LocalStorage.
  */
 export default class BaseModel extends EventEmitter {
     /**
@@ -15,16 +15,29 @@ export default class BaseModel extends EventEmitter {
     }
 
     /**
+     * Dynamically resolve storage key prefix based on logged in user session.
+     * @returns {string} Fully qualified LocalStorage key
+     */
+    getEffectiveKey() {
+        const currentUser = localStorage.getItem('todozen_current_user');
+        if (currentUser) {
+            return `todozen_user_${currentUser}_${this.storageKey}`;
+        }
+        return `todozen_anonymous_${this.storageKey}`;
+    }
+
+    /**
      * Loads state from LocalStorage.
      * @param {*} defaultState - Default state to fallback to if empty
      * @returns {*} Loaded state
      */
     load(defaultState) {
+        const key = this.getEffectiveKey();
         try {
-            const data = localStorage.getItem(this.storageKey);
+            const data = localStorage.getItem(key);
             return data ? JSON.parse(data) : defaultState;
         } catch (e) {
-            console.error(`Error loading state for key "${this.storageKey}":`, e);
+            console.error(`Error loading state for key "${key}":`, e);
             return defaultState;
         }
     }
@@ -34,11 +47,12 @@ export default class BaseModel extends EventEmitter {
      * @param {*} state - State to serialize and save
      */
     save(state) {
+        const key = this.getEffectiveKey();
         try {
-            localStorage.setItem(this.storageKey, JSON.stringify(state));
+            localStorage.setItem(key, JSON.stringify(state));
             this.emit('change', state);
         } catch (e) {
-            console.error(`Error saving state for key "${this.storageKey}":`, e);
+            console.error(`Error saving state for key "${key}":`, e);
         }
     }
 }

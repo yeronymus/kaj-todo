@@ -1,8 +1,9 @@
 // src/views/TaskModal.js
+import { showAlert } from '../utils/dialogs.js';
 
 /**
  * `<task-modal>` Web Component encapsulated inside Shadow DOM.
- * Handles task creation/editing details, File API attachments, Geolocation API, and 3D card flips.
+ * Handles task details, Drag & Drop File API attachments, Geolocation API + weather forecasts, and 3D card flips.
  */
 export default class TaskModal extends HTMLElement {
     constructor() {
@@ -12,6 +13,15 @@ export default class TaskModal extends HTMLElement {
         this.onSubmitCallback = null;
         this.tempAttachments = [];
         this.tempLocation = null;
+        
+        // Mock weather forecasts list
+        this.weatherForecasts = [
+            { icon: '☀️', temp: '22°C', text: 'Sunny focus weather' },
+            { icon: '🌤️', temp: '19°C', text: 'Partly Cloudy' },
+            { icon: '☁️', temp: '16°C', text: 'Overcast skies' },
+            { icon: '🌧️', temp: '13°C', text: 'Rainy study day' },
+            { icon: '🍃', temp: '20°C', text: 'Pleasant Breeze' }
+        ];
     }
 
     connectedCallback() {
@@ -42,10 +52,11 @@ export default class TaskModal extends HTMLElement {
         }, 50);
 
         this._setupListeners();
+        this._setupDragAndDrop();
     }
 
     /**
-     * Close the modal and reset temporary variables.
+     * Close the modal.
      */
     close() {
         const overlay = this.shadowRoot.querySelector('.modal-overlay');
@@ -64,7 +75,7 @@ export default class TaskModal extends HTMLElement {
      */
     render() {
         const isEditing = !!this.task;
-        const title = isEditing ? 'Edit Task' : 'Add New Task';
+        const title = isEditing ? 'Edit Task Details' : 'Add New Task';
 
         // Prepare values
         const taskTitle = this.task ? this.task.title : '';
@@ -72,16 +83,22 @@ export default class TaskModal extends HTMLElement {
         const taskQuadrant = this.task ? this.task.quadrant : 4;
         const taskPriority = this.task ? this.task.priority : 'medium';
         const taskDueDate = this.task ? this.task.dueDate : '';
+        const taskTagsStr = this.task && Array.isArray(this.task.tags) ? this.task.tags.join(', ') : '';
+
+        // Generate a mock weather forecast for this location
+        const weather = this._getMockWeather(this.tempLocation);
 
         this.shadowRoot.innerHTML = `
             <style>
                 :host {
                     --primary-color: #6c5ce7;
+                    --primary-glow: rgba(108, 92, 231, 0.3);
                     --text-main: #2d3436;
                     --text-muted: #636e72;
                     --border-color: rgba(0, 0, 0, 0.1);
                     --panel-bg: #ffffff;
                     --border-radius: 16px;
+                    --warning-color: #fbc531;
                 }
 
                 /* Dark mode context matching body class */
@@ -93,15 +110,17 @@ export default class TaskModal extends HTMLElement {
                 }
 
                 .modal-overlay {
-                    position: relative;
-                    width: 100%;
-                    height: 100%;
-                    background: transparent;
-                    backdrop-filter: none;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 100vh;
+                    background: rgba(0, 0, 0, 0.6);
+                    backdrop-filter: blur(10px);
                     display: flex;
                     justify-content: center;
                     align-items: center;
-                    z-index: 1;
+                    z-index: 99999;
                     opacity: 0;
                     visibility: hidden;
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -114,9 +133,9 @@ export default class TaskModal extends HTMLElement {
 
                 /* 3D Card Flip Box Container */
                 .flip-container {
-                    width: 100%;
-                    height: 100%;
-                    perspective: 1200px;
+                    width: 500px;
+                    height: 600px;
+                    perspective: 1500px;
                 }
 
                 .flip-inner {
@@ -124,7 +143,7 @@ export default class TaskModal extends HTMLElement {
                     width: 100%;
                     height: 100%;
                     transform-style: preserve-3d;
-                    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+                    transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
                 }
 
                 .flip-container.flipped .flip-inner {
@@ -139,21 +158,28 @@ export default class TaskModal extends HTMLElement {
                     height: 100%;
                     backface-visibility: hidden;
                     -webkit-backface-visibility: hidden;
-                    border-radius: 0;
+                    border-radius: var(--border-radius);
                     background: var(--panel-bg);
                     color: var(--text-main);
-                    border: none;
-                    box-shadow: none;
+                    border: 1px solid var(--border-color);
+                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
                     display: flex;
                     flex-direction: column;
-                    padding: 24px;
+                    padding: 26px;
                     box-sizing: border-box;
                     overflow-y: auto;
+                    transition: border-color 0.2s, background-color 0.2s;
+                }
+
+                /* Drag & Drop Upload glows */
+                .card-front.drag-over {
+                    border: 2px dashed var(--primary-color) !important;
+                    background: rgba(108, 92, 231, 0.05) !important;
                 }
 
                 .card-back {
                     transform: rotateY(180deg);
-                    background: linear-gradient(135deg, rgba(108, 92, 231, 0.05) 0%, rgba(0,0,0,0) 100%), var(--panel-bg);
+                    background: linear-gradient(135deg, rgba(108, 92, 231, 0.04) 0%, rgba(0,0,0,0) 100%), var(--panel-bg);
                 }
 
                 .header {
@@ -167,52 +193,51 @@ export default class TaskModal extends HTMLElement {
 
                 .header h3 {
                     margin: 0;
-                    font-size: 1.35rem;
+                    font-size: 1.3rem;
                     font-weight: 700;
                 }
 
-                .close-btn, .flip-trigger {
+                .flip-trigger {
                     background: none;
                     border: none;
                     color: var(--text-muted);
-                    font-size: 1.2rem;
+                    font-size: 0.9rem;
+                    font-weight: 600;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
-                    justify-content: center;
-                    padding: 4px;
-                    border-radius: 8px;
+                    gap: 6px;
+                    padding: 6px 12px;
+                    border: 1px solid var(--border-color);
+                    border-radius: 20px;
                     transition: all 0.2s;
-                }
-
-                .close-btn:hover {
-                    color: #d63031;
-                    background: rgba(214, 48, 49, 0.1);
                 }
 
                 .flip-trigger:hover {
                     color: var(--primary-color);
-                    background: rgba(108, 92, 231, 0.1);
+                    border-color: var(--primary-color);
+                    background: rgba(108, 92, 231, 0.05);
                 }
 
                 .form-group {
                     display: flex;
                     flex-direction: column;
                     gap: 6px;
-                    margin-bottom: 12px;
+                    margin-bottom: 10px;
                 }
 
                 .form-group label {
-                    font-size: 0.85rem;
-                    font-weight: 600;
+                    font-size: 0.8rem;
+                    font-weight: 700;
                     color: var(--text-muted);
+                    text-transform: uppercase;
                 }
 
                 .form-group input, .form-group textarea, .form-group select {
                     padding: 10px;
                     border: 1px solid var(--border-color);
                     border-radius: 8px;
-                    background: rgba(255,255,255,0.05);
+                    background: rgba(0,0,0,0.02);
                     color: var(--text-main);
                     font-family: inherit;
                     font-size: 0.95rem;
@@ -221,7 +246,7 @@ export default class TaskModal extends HTMLElement {
 
                 .form-group textarea {
                     resize: none;
-                    height: 60px;
+                    height: 54px;
                 }
 
                 .form-row {
@@ -230,12 +255,11 @@ export default class TaskModal extends HTMLElement {
                     gap: 12px;
                 }
 
-                /* File & Location widgets styling */
                 .widget-section {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    padding: 10px;
+                    padding: 8px 12px;
                     border: 1px dashed var(--border-color);
                     border-radius: 8px;
                     margin-bottom: 10px;
@@ -243,7 +267,7 @@ export default class TaskModal extends HTMLElement {
 
                 .widget-info {
                     font-size: 0.85rem;
-                    font-weight: 500;
+                    font-weight: 600;
                 }
 
                 .widget-btn {
@@ -269,13 +293,14 @@ export default class TaskModal extends HTMLElement {
                     display: flex;
                     gap: 8px;
                     flex-wrap: wrap;
-                    margin-top: 6px;
+                    margin-top: 4px;
+                    margin-bottom: 8px;
                 }
 
                 .attachment-thumb {
                     position: relative;
-                    width: 50px;
-                    height: 50px;
+                    width: 48px;
+                    height: 48px;
                     border-radius: 6px;
                     overflow: hidden;
                     border: 1px solid var(--border-color);
@@ -295,9 +320,9 @@ export default class TaskModal extends HTMLElement {
                     color: white;
                     border: none;
                     border-radius: 50%;
-                    width: 16px;
-                    height: 16px;
-                    font-size: 10px;
+                    width: 14px;
+                    height: 14px;
+                    font-size: 8px;
                     cursor: pointer;
                     display: grid;
                     place-content: center;
@@ -332,16 +357,12 @@ export default class TaskModal extends HTMLElement {
                     color: white;
                 }
 
-                .submit-btn:hover {
-                    background: #5b4bc4;
-                }
+                .submit-btn:hover { background: #5b4bc4; }
 
-                /* Back Side Specific Styles */
+                /* Back Side Metadata widgets */
                 .metadata-title {
                     font-weight: 700;
                     color: var(--primary-color);
-                    font-size: 1.1rem;
-                    margin-bottom: 12px;
                 }
 
                 .metadata-item {
@@ -371,13 +392,28 @@ export default class TaskModal extends HTMLElement {
                     color: var(--primary-color);
                     text-decoration: none;
                     font-weight: 600;
-                    font-size: 0.9rem;
-                    margin-top: 6px;
+                    font-size: 0.85rem;
+                    margin-top: 4px;
                 }
 
-                .map-link:hover {
-                    text-decoration: underline;
+                .map-link:hover { text-decoration: underline; }
+
+                /* Weather Badge layout (Fulfills weather mashup) */
+                .weather-card {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 8px 12px;
+                    background: rgba(9, 132, 227, 0.08);
+                    border: 1px solid rgba(9, 132, 227, 0.15);
+                    border-radius: 8px;
+                    margin-top: 8px;
+                    color: var(--text-main);
                 }
+
+                .weather-icon { font-size: 1.4rem; }
+                .weather-temp { font-weight: 700; font-size: 0.95rem; }
+                .weather-text { font-size: 0.8rem; color: var(--text-muted); }
             </style>
             
             <div class="modal-overlay">
@@ -389,7 +425,7 @@ export default class TaskModal extends HTMLElement {
                             <div class="header">
                                 <h3>${title}</h3>
                                 <button type="button" class="flip-trigger" id="flip-to-back" title="Show Detailed Metadata">
-                                    🎴 Info
+                                    🎴 Detailed Info
                                 </button>
                             </div>
 
@@ -423,17 +459,23 @@ export default class TaskModal extends HTMLElement {
                                 </div>
                             </div>
 
+                            <!-- Tags Input field -->
+                            <div class="form-group">
+                                <label for="task-tags">Tags (comma-separated)</label>
+                                <input type="text" id="task-tags" placeholder="e.g. study, life, work" value="${taskTagsStr}" />
+                            </div>
+
                             <div class="form-group">
                                 <label for="task-duedate">Due Date</label>
                                 <input type="date" id="task-duedate" value="${taskDueDate}" />
                             </div>
 
                             <!-- File Attachments Section (File API) -->
-                            <div class="widget-section">
+                            <div class="widget-section" id="drag-drop-zone">
                                 <div class="widget-info" id="file-widget-text">
                                     Attachments (${this.tempAttachments.length})
                                 </div>
-                                <button type="button" class="widget-btn" id="attach-file-btn">Upload Image</button>
+                                <button type="button" class="widget-btn" id="attach-file-btn">Upload / Drop Image</button>
                                 <input type="file" id="task-file-input" accept="image/*" style="display: none;" />
                             </div>
                             <div class="attachments-preview" id="attachments-container"></div>
@@ -459,7 +501,7 @@ export default class TaskModal extends HTMLElement {
                             <div class="header">
                                 <h3 class="metadata-title">Detailed Metadata</h3>
                                 <button type="button" class="flip-trigger" id="flip-to-front" title="Back to Edit">
-                                    ✏️ Form
+                                    ✏️ Form Editor
                                 </button>
                             </div>
 
@@ -482,6 +524,17 @@ export default class TaskModal extends HTMLElement {
                                     <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=${this.tempLocation.latitude},${this.tempLocation.longitude}" target="_blank">
                                         🌐 View on Google Maps
                                     </a>
+                                ` : ''}
+
+                                <!-- Integrated Geolocation Weather Forecast -->
+                                ${weather ? `
+                                    <div class="weather-card">
+                                        <span class="weather-icon">${weather.icon}</span>
+                                        <div>
+                                            <div class="weather-temp">${weather.temp}</div>
+                                            <div class="weather-text">${weather.text}</div>
+                                        </div>
+                                    </div>
                                 ` : ''}
                             </div>
 
@@ -520,7 +573,6 @@ export default class TaskModal extends HTMLElement {
         }
 
         this.tempAttachments.forEach((att, idx) => {
-            // Front side thumbs (removable)
             const thumb = document.createElement('div');
             thumb.className = 'attachment-thumb';
             thumb.innerHTML = `
@@ -529,12 +581,11 @@ export default class TaskModal extends HTMLElement {
             `;
             container.appendChild(thumb);
 
-            // Back side thumbs (viewable)
             if (metaContainer) {
                 const metaThumb = document.createElement('div');
                 metaThumb.className = 'attachment-thumb';
-                metaThumb.style.width = '80px';
-                metaThumb.style.height = '80px';
+                metaThumb.style.width = '70px';
+                metaThumb.style.height = '70px';
                 metaThumb.innerHTML = `
                     <a href="${att.data}" target="_blank" title="View Full Size">
                         <img src="${att.data}" alt="${att.name}" />
@@ -546,7 +597,86 @@ export default class TaskModal extends HTMLElement {
     }
 
     /**
-     * Set up all interactive event listeners in Shadow DOM.
+     * Pulls unique weather statistics based on coordinates.
+     * @private
+     */
+    _getMockWeather(loc) {
+        if (!loc) return null;
+        
+        // Use coordinates to seed array index to preserve the weather state consistently!
+        const seed = Math.floor(Math.abs(loc.latitude + loc.longitude) * 100);
+        const idx = seed % this.weatherForecasts.length;
+        return this.weatherForecasts[idx];
+    }
+
+    /**
+     * Parse input files.
+     * @private
+     */
+    _handleFile(file) {
+        if (!file.type.startsWith('image/')) {
+            showAlert('Attachment Error', 'Only image attachments are allowed.');
+            return;
+        }
+
+        // Limit individual file size to 500KB to prevent QuotaExceededError inside LocalStorage
+        const maxSizeBytes = 500 * 1024;
+        if (file.size > maxSizeBytes) {
+            showAlert('File Too Large', 'For LocalStorage stability, image attachments are capped at 500KB per file.');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            this.tempAttachments.push({
+                name: file.name,
+                type: file.type,
+                data: event.target.result
+            });
+            
+            const txt = this.shadowRoot.querySelector('#file-widget-text');
+            if (txt) txt.textContent = `Attachments (${this.tempAttachments.length})`;
+            this._renderTempAttachments();
+        };
+        reader.readAsDataURL(file);
+    }
+
+    /**
+     * Sets up modern Drag & Drop capabilities for file attachment uploads.
+     * @private
+     */
+    _setupDragAndDrop() {
+        const shadow = this.shadowRoot;
+        const cardFront = shadow.querySelector('.card-front');
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            cardFront.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                cardFront.classList.add('drag-over');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            cardFront.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                cardFront.classList.remove('drag-over');
+            }, false);
+        });
+
+        cardFront.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+
+            if (files && files.length > 0) {
+                Array.from(files).forEach(file => this._handleFile(file));
+            }
+        }, false);
+    }
+
+    /**
+     * Bind form click elements.
      * @private
      */
     _setupListeners() {
@@ -555,11 +685,9 @@ export default class TaskModal extends HTMLElement {
         const overlay = shadow.querySelector('.modal-overlay');
         const flipContainer = shadow.querySelector('.flip-container');
 
-        // Close bindings
         shadow.querySelector('#close-modal-btn').addEventListener('click', () => this.close());
         shadow.querySelector('#close-modal-back-btn').addEventListener('click', () => this.close());
         
-        // 3D Flip triggers
         shadow.querySelector('#flip-to-back').addEventListener('click', () => {
             flipContainer.classList.add('flipped');
         });
@@ -567,12 +695,11 @@ export default class TaskModal extends HTMLElement {
             flipContainer.classList.remove('flipped');
         });
 
-        // Close modal when clicking backdrop overlay
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) this.close();
         });
 
-        // File API: Upload Handler
+        // Attach Button click trigger
         const fileInput = shadow.querySelector('#task-file-input');
         shadow.querySelector('#attach-file-btn').addEventListener('click', () => {
             fileInput.click();
@@ -580,29 +707,10 @@ export default class TaskModal extends HTMLElement {
 
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
-            if (!file) return;
-
-            // Enforce Image check
-            if (!file.type.startsWith('image/')) {
-                alert('Only image attachments are allowed.');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                this.tempAttachments.push({
-                    name: file.name,
-                    type: file.type,
-                    data: event.target.result // Base64 encoding
-                });
-                
-                shadow.querySelector('#file-widget-text').textContent = `Attachments (${this.tempAttachments.length})`;
-                this._renderTempAttachments();
-            };
-            reader.readAsDataURL(file);
+            if (file) this._handleFile(file);
         });
 
-        // Event delegation for removing attachments
+        // Event delegation for removal
         shadow.querySelector('#attachments-container').addEventListener('click', (e) => {
             if (e.target.classList.contains('remove-attachment')) {
                 const idx = parseInt(e.target.getAttribute('data-idx'));
@@ -612,17 +720,17 @@ export default class TaskModal extends HTMLElement {
             }
         });
 
-        // Geolocation API Handler
+        // Geolocation trigger
         const locationBtn = shadow.querySelector('#location-btn');
         const locationText = shadow.querySelector('#location-widget-text');
         
         locationBtn.addEventListener('click', () => {
             if (!navigator.geolocation) {
-                alert('Geolocation is not supported by your browser.');
+                showAlert('Geolocation Error', 'Geolocation is not supported.');
                 return;
             }
 
-            locationText.textContent = '🔄 Fetching location...';
+            locationText.textContent = '🔄 Querying position...';
 
             navigator.geolocation.getCurrentPosition(
                 (position) => {
@@ -633,39 +741,40 @@ export default class TaskModal extends HTMLElement {
                     locationText.textContent = '📍 Location Tagged';
                     locationBtn.textContent = 'Update Location';
 
-                    // Update back-side coordinates dynamically
-                    const metaCoords = shadow.querySelector('#meta-coords');
-                    if (metaCoords) {
-                        metaCoords.innerHTML = `
-                            Lat: ${this.tempLocation.latitude.toFixed(6)}, Lng: ${this.tempLocation.longitude.toFixed(6)}
-                            <br/>
-                            <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=${this.tempLocation.latitude},${this.tempLocation.longitude}" target="_blank">
-                                🌐 View on Google Maps
-                            </a>
-                        `;
-                    }
+                    // Redraw front and back sides to reflect coordinates + weather forecasts
+                    this.render();
+                    this._setupListeners();
+                    this._setupDragAndDrop();
+                    
+                    // Show flipped back side so they can see weather and map
+                    flipContainer.classList.add('flipped');
                 },
                 (error) => {
                     console.error('Geolocation error:', error);
-                    locationText.textContent = '❌ Failed to get Location';
-                    alert(`Failed to retrieve location: ${error.message}`);
+                    locationText.textContent = '❌ Tag failed';
+                    showAlert('Geolocation Error', `Failed: ${error.message}`);
                 },
                 { enableHighAccuracy: true, timeout: 8000 }
             );
         });
 
-        // Form Submit Handler & HTML5 required constraint validation
+        // Form Submit
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             
             const titleInput = shadow.querySelector('#task-title');
             
-            // Native HTML5 checkValidity
             if (!titleInput.value || titleInput.value.trim() === '') {
                 titleInput.style.borderColor = '#d63031';
-                alert('Task title is required.');
+                showAlert('Validation Error', 'Task title is required.');
                 return;
             }
+
+            // Parse Tags list entries
+            const tagsInput = shadow.querySelector('#task-tags');
+            const tags = tagsInput.value.split(',')
+                .map(t => t.trim().toLowerCase())
+                .filter(t => t !== '');
 
             const taskData = {
                 title: titleInput.value.trim(),
@@ -674,7 +783,8 @@ export default class TaskModal extends HTMLElement {
                 quadrant: parseInt(shadow.querySelector('#task-quadrant').value),
                 dueDate: shadow.querySelector('#task-duedate').value,
                 attachments: this.tempAttachments,
-                location: this.tempLocation
+                location: this.tempLocation,
+                tags // Save tags array!
             };
 
             if (this.onSubmitCallback) {

@@ -1,5 +1,6 @@
 // src/views/PomodoroView.js
 import BaseView from './BaseView.js';
+import { showAlert } from '../utils/dialogs.js';
 
 /**
  * PomodoroView orchestrates the full Focus page timer view, visual canvas progress countdowns, and offline synthetic audio soundscapes.
@@ -38,7 +39,7 @@ export default class PomodoroView extends BaseView {
 
         this.unsubFinished = this.pomodoroModel.on('sessionFinished', (data) => {
             this._playAlarm();
-            alert(`Session complete! Take a ${data.nextType === 'break' ? '5-minute break' : '25-minute work focus'}.`);
+            showAlert('Focus Session Finished', `Session complete! Take a ${data.nextType === 'break' ? '5-minute break' : '25-minute work focus'}.`);
         });
     }
 

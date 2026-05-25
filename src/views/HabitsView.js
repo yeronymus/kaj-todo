@@ -1,5 +1,49 @@
 // src/views/HabitsView.js
 import BaseView from './BaseView.js';
+import { showConfirm } from '../utils/dialogs.js';
+
+/**
+ * Confetti particle class for habit check-in milestone rewards.
+ */
+class ConfettiParticle {
+    constructor(x, y, color, direction) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.size = Math.random() * 8 + 6;
+        
+        // Shoot upwards and towards the center
+        this.speedX = direction === 'left' ? Math.random() * 14 + 6 : Math.random() * -14 - 6;
+        this.speedY = Math.random() * -18 - 8;
+        
+        this.gravity = 0.35;
+        this.drag = 0.98;
+        this.opacity = 1.0;
+        this.fade = Math.random() * 0.015 + 0.008;
+        this.rotation = Math.random() * 360;
+        this.rotationSpeed = Math.random() * 12 - 6;
+    }
+
+    update() {
+        this.speedX *= this.drag;
+        this.speedY *= this.drag;
+        this.speedY += this.gravity;
+        this.x += this.speedX;
+        this.y += this.speedY;
+        this.opacity -= this.fade;
+        this.rotation += this.rotationSpeed;
+    }
+
+    draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation * Math.PI / 180);
+        ctx.globalAlpha = Math.max(0, this.opacity);
+        ctx.fillStyle = this.color;
+        ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+        ctx.restore();
+    }
+}
 
 /**
  * HabitsView displays recurring habits, check-ins, and renders an interactive HTML5 Canvas performance chart.
@@ -16,12 +60,16 @@ export default class HabitsView extends BaseView {
         this.unsubscribeAdded = this.habitModel.on('habitAdded', () => this.render());
         this.unsubscribeUpdated = this.habitModel.on('habitUpdated', () => this.render());
         this.unsubscribeDeleted = this.habitModel.on('habitDeleted', () => this.render());
+        
+        this.confettiActive = false;
+        this.particles = [];
     }
 
     destroy() {
         this.unsubscribeAdded();
         this.unsubscribeUpdated();
         this.unsubscribeDeleted();
+        this.confettiActive = false;
     }
 
     /**
@@ -241,6 +289,70 @@ export default class HabitsView extends BaseView {
     }
 
     /**
+     * Launches a glorious fullscreen double corner shoot particle confetti explosion!
+     * @private
+     */
+    _triggerConfetti() {
+        const canvas = document.getElementById('confetti-canvas');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        
+        canvas.width = w;
+        canvas.height = h;
+
+        this.particles = [];
+        
+        // Colors palette matching the active premium theme
+        const colors = ['#6c5ce7', '#ff007f', '#00f0ff', '#00b894', '#fbc531', '#e84118'];
+
+        // Spawn shooting particles from Bottom Left
+        for (let i = 0; i < 70; i++) {
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            this.particles.push(new ConfettiParticle(0, h, color, 'left'));
+        }
+
+        // Spawn shooting particles from Bottom Right
+        for (let i = 0; i < 70; i++) {
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            this.particles.push(new ConfettiParticle(w, h, color, 'right'));
+        }
+
+        if (!this.confettiActive) {
+            this.confettiActive = true;
+            this._animateConfetti(canvas, ctx);
+        }
+    }
+
+    /**
+     * Particles animation loop using requestAnimationFrame.
+     * @private
+     */
+    _animateConfetti(canvas, ctx) {
+        if (!this.confettiActive) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Update and render active particles
+        this.particles.forEach(p => {
+            p.update();
+            p.draw(ctx);
+        });
+
+        // Filter out completely transparent dead particles
+        this.particles = this.particles.filter(p => p.opacity > 0);
+
+        if (this.particles.length > 0) {
+            requestAnimationFrame(() => this._animateConfetti(canvas, ctx));
+        } else {
+            this.confettiActive = false;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+
+    /**
      * Binds click events.
      * @private
      */
@@ -268,22 +380,36 @@ export default class HabitsView extends BaseView {
             list.addEventListener('click', (e) => {
                 const target = e.target;
 
-                // 1. Toggle completed date
+                // 1. Toggle completed date (Confetti dopamine burst + micro vibrations!)
                 const btn = target.closest('.check-btn');
                 if (btn) {
                     const id = btn.getAttribute('data-id');
                     const todayStr = this._getLocalDateString(new Date());
+                    
+                    const isChecked = btn.classList.contains('checked');
+                    
+                    // Save state change
                     this.habitModel.toggleHabitDate(id, todayStr);
+
+                    // Confetti and vibration triggers on checking off
+                    if (!isChecked) {
+                        this._triggerConfetti();
+                        
+                        // Micro-Vibration dopamine ticks
+                        if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
+                    }
                     return;
                 }
 
                 // 2. Delete Habit
                 const del = target.closest('.delete-habit-btn');
                 if (del) {
-                    if (confirm('Are you sure you want to delete this habit?')) {
-                        const id = del.getAttribute('data-id');
-                        this.habitModel.deleteHabit(id);
-                    }
+                    const id = del.getAttribute('data-id');
+                    showConfirm('Delete Habit', 'Are you sure you want to delete this habit?').then((confirmed) => {
+                        if (confirmed) {
+                            this.habitModel.deleteHabit(id);
+                        }
+                    });
                     return;
                 }
             });
